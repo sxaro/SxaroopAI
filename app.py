@@ -1,5 +1,3 @@
-```python
-# app.py
 import os
 import logging
 from flask import Flask, request
@@ -78,23 +76,21 @@ def webhook():
 
             logging.info(f"👤 From {sender}: {text}")
 
-            # ─── Call OpenAI ──────────────────────────────────────────────
             try:
                 completion = client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=[
-                        {"role":"system", "content": SYSTEM_PROMPT},
-                        {"role":"user",   "content": text}
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user",   "content": text}
                     ]
                 )
                 reply = completion.choices[0].message.content.strip()
                 logging.info(f"🤖 GPT Reply: {reply}")
 
-            except Exception as e:
+            except Exception:
                 logging.exception("OpenAI API error")
                 reply = "Sorry, something went wrong. Please try again later."
 
-            # ─── Send back via Meta ───────────────────────────────────────
             send_message(sender, reply)
 
     return "ok", 200
@@ -103,12 +99,3 @@ def webhook():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-```
-
-# **requirements.txt**
-# ```
-# flask
-# requests
-# openai>=1.0.0
-# gunicorn
-# ```
