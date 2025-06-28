@@ -56,8 +56,8 @@ def webhook():
 
             # 🔁 Get ChatGPT reply using latest SDK
             response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[{"role": "user", "content": user_message}]
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": user_message}]
             )
             bot_reply = response.choices[0].message.content.strip()
 
