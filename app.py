@@ -1,96 +1,125 @@
-# ✅ Sxaroop AI - Instagram DM ChatGPT Bot
+# ✅ Sxaroop AI - Instagram DM ChatGPT Bot (Improved)
 
-from flask import Flask, request
-import requests
+```python
 import os
-from openai import OpenAI
+import logging
+from flask import Flask, request
+from openai import OpenAI, error as openai_error
+import requests
 
+# ─── Configuration ───────────────────────────────────────────────────────────
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-# ✅ Environment variables from Render Dashboard
-VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")             # e.g. swaroop_token
-PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")   # Meta token
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")         # Your OpenAI Key
+# Environment variables (set these on Render or your host)
+VERIFY_TOKEN      = os.getenv("VERIFY_TOKEN")      # e.g. "swaroop_token"
+PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN") # Meta Page access token
+OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY")    # OpenAI API key
+SYSTEM_PROMPT     = os.getenv(
+    "SYSTEM_PROMPT",
+    "You are Swaroop's assistant. Swaroop is a 12th-grade science student and YouTuber. Reply helpfully and courteously."
+)
 
-# ✅ OpenAI client setup (New SDK)
+# Validate configuration
+missing = [k for k in ("VERIFY_TOKEN","PAGE_ACCESS_TOKEN","OPENAI_API_KEY") if not globals()[k]]
+if missing:
+    logging.critical(f"Missing environment vars: {', '.join(missing)}")
+    raise SystemExit(f"ERROR: Please set {', '.join(missing)}")
+
+# ─── OpenAI Client ─────────────────────────────────────────────────────────────
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# ✅ Function to send message via Meta API
-def send_message(recipient_id, message_text):
-    url = f"https://graph.facebook.com/v18.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
+# ─── Utility: Send Message via Meta Send API ───────────────────────────────────
+def send_message(recipient_id: str, message_text: str) -> None:
+    url = "https://graph.facebook.com/v18.0/me/messages"
+    params = {"access_token": PAGE_ACCESS_TOKEN}
     payload = {
         "messaging_type": "RESPONSE",
         "recipient": {"id": recipient_id},
         "message": {"text": message_text}
     }
-    headers = {"Content-Type": "application/json"}
-    response = requests.post(url, headers=headers, json=payload)
-    print("📤 Sent to Meta:", response.status_code, response.text)
+    try:
+        resp = requests.post(url, params=params, json=payload, timeout=5)
+        resp.raise_for_status()
+        logging.info(f"Meta Reply ✅ to {recipient_id}: {resp.status_code}")
+    except requests.RequestException as e:
+        logging.error(f"Meta Reply ❌ to {recipient_id}: {e} | Response: {getattr(e.response, 'text', '')}")
 
-# ✅ Health Check Route
-@app.route("/")
+# ─── Health Check ────────────────────────────────────────────────────────────────
+@app.route("/", methods=["GET"])
 def home():
-    return "✅ Swaroop AI is Running!"
+    return "✅ Swaroop AI Bot is Running!", 200
 
-# ✅ Webhook Route
+# ─── Webhook Verification & Message Handler ────────────────────────────────────
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     if request.method == "GET":
-        mode = request.args.get("hub.mode")
-        token = request.args.get("hub.verify_token")
+        mode      = request.args.get("hub.mode")
+        token     = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
         if mode == "subscribe" and token == VERIFY_TOKEN:
-            print("🔐 Webhook verified")
+            logging.info("Webhook verified successfully")
             return challenge, 200
-        return "❌ Verification failed", 403
+        logging.warning("Webhook verification failed")
+        return "Verification failed", 403
 
-    if request.method == "POST":
-        data = request.get_json()
-        print("📩 Incoming data:", data)
+    data = request.get_json(silent=True)
+    logging.info(f"📩 Incoming payload: {data}")
+    if not data or data.get("object") not in ("page","instagram"):
+        return "ignored", 200
 
-        try:
-            message_event = data['entry'][0]['messaging'][0]
-            sender_id = message_event['sender']['id']
+    for entry in data.get("entry", []):
+        for event in entry.get("messaging", []):
+            sender = event.get("sender", {}).get("id")
+            msg    = event.get("message", {})
+            text   = msg.get("text")
+            if not sender or not text:
+                logging.info("⚠️ No text message to handle, ignoring")
+                continue
+            logging.info(f"👤 From {sender}: {text}")
 
-            # ✅ Check if message is present and has text
-            if 'message' in message_event and 'text' in message_event['message']:
-                user_message = message_event['message']['text']
-                print(f"👤 User: {sender_id} ➡️ {user_message}")
-
-                # 🔁 Get GPT reply using new SDK
-                # completion = client.chat.completions.create(
-                #     model="gpt-3.5-turbo",
-                #     messages=[
-                #         {"role": "user", "content": user_message}
-                #     ]
-                # )
-                # bot_reply = completion.choices[0].message.content.strip()
-                # print("🤖 Bot reply:", bot_reply)
-                
-                client = OpenAI(
-                  api_key="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"
-                )
-                
+            # ─── Call OpenAI ──────────────────────────────────────────────
+            try:
                 completion = client.chat.completions.create(
-                  model="gpt-4o-mini",
-                  store=True,
-                  messages=[
-                    {"role": "user", "content": "write a haiku about ai"}
-                  ]
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "user",   "content": text}
+                    ]
                 )
-                
-                print(completion.choices[0].message);                
-                
-                # 📤 Send reply back
-                send_message(sender_id, bot_reply)
-            else:
-                print("⚠️ Message has no text — ignored.")
+                reply = completion.choices[0].message.content.strip()
+                logging.info(f"🤖 GPT Reply: {reply}")
 
-        except Exception as e:
-            print("❌ Error:", e)
+            except openai_error.InvalidRequestError as e:
+                logging.error(f"OpenAI InvalidRequest: {e}")
+                reply = "Sorry, I couldn't process that request."
+            except openai_error.AuthenticationError as e:
+                logging.error(f"OpenAI Auth Error: {e}")
+                reply = "API key error. Please check my configuration."
+            except openai_error.RateLimitError as e:
+                logging.error(f"OpenAI Rate Limit: {e}")
+                reply = "I'm a bit busy right now. Please try again shortly."
+            except openai_error.OpenAIError as e:
+                logging.error(f"OpenAI General Error: {e}")
+                reply = "Oops! Something went wrong on my end."
+            except Exception as e:
+                logging.exception("Unexpected error calling OpenAI")
+                reply = "Unexpected error. Please try again later."
 
-        return "ok", 200
+            # ─── Send back via Meta ───────────────────────────────────────
+            send_message(sender, reply)
 
-# ✅ For local testing
+    return "ok", 200
+
+# ─── Entry Point for Local & Render ────────────────────────────────────────────
 if __name__ == "__main__":
-    app.run()
+    port = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+```
+
+## requirements.txt
+```
+flask
+requests
+openai>=1.0.0
+gunicorn
