@@ -10,7 +10,10 @@ app = Flask(__name__)
 # 🔐 Secure tokens from environment
 VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")  # e.g. swaroop_token
 PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
-openai.api_key = os.environ.get("OPENAI_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+
+# ✅ Create OpenAI client (new SDK method)
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 # ✅ Meta reply function
 def send_message(recipient_id, message_text):
@@ -51,15 +54,13 @@ def webhook():
             user_message = message_event['message']['text']
             print(f"👤 User: {sender_id} ➡️ {user_message}")
 
-            # 🔁 Get ChatGPT reply
-            client = openai.OpenAI()
-            
+            # 🔁 Get ChatGPT reply using latest SDK
             response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[{"role": "user", "content": user_message}]
             )
             bot_reply = response.choices[0].message.content.strip()
-            
+
             print("🤖 Bot reply:", bot_reply)
 
             # 📤 Send message back
@@ -70,6 +71,6 @@ def webhook():
 
         return "ok", 200
 
-# ✅ Run app for local testing (Render uses gunicorn)
+# ✅ Run app for local testing (Render uses gunicorn in production)
 if __name__ == "__main__":
     app.run()
