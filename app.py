@@ -49,4 +49,24 @@ def webhook():
             message_event = data['entry'][0]['messaging'][0]
             sender_id = message_event['sender']['id']
             user_message = message_event['message']['text']
-            print(f"👤 User: {sender_id} ➡️ {user_message
+            print(f"👤 User: {sender_id} ➡️ {user_message}")
+
+            # 🔁 Get ChatGPT reply
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": user_message}]
+            )
+            bot_reply = response.choices[0].message.content.strip()
+            print("🤖 Bot reply:", bot_reply)
+
+            # 📤 Send message back
+            send_message(sender_id, bot_reply)
+
+        except Exception as e:
+            print("❌ Error:", e)
+
+        return "ok", 200
+
+# ✅ Run app for local testing (Render uses gunicorn)
+if __name__ == "__main__":
+    app.run()
