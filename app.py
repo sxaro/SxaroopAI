@@ -59,3 +59,7 @@ def webhook():
             print("❌ Error:", e)
 
         return "ok", 200
+
+# ✅ Render ko run karne ke liye zaroori
+if __name__ == "__main__":
+    app.run()
