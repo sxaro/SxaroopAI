@@ -1,7 +1,9 @@
+```python
+# app.py
 import os
 import logging
 from flask import Flask, request
-from openai import OpenAI, error as openai_error
+from openai import OpenAI
 import requests
 
 # ─── App & Logging ─────────────────────────────────────────────────────────────
@@ -17,7 +19,7 @@ SYSTEM_PROMPT     = os.getenv(
     "You are Swaroop's assistant. Swaroop is a 12th-grade science student and YouTuber. Reply helpfully and courteously."
 )
 
-# Validate that all required ENV vars are set
+# Validate configuration
 missing = [k for k in ("VERIFY_TOKEN","PAGE_ACCESS_TOKEN","OPENAI_API_KEY") if not globals()[k]]
 if missing:
     logging.critical(f"Missing environment vars: {', '.join(missing)}")
@@ -88,18 +90,9 @@ def webhook():
                 reply = completion.choices[0].message.content.strip()
                 logging.info(f"🤖 GPT Reply: {reply}")
 
-            except openai_error.AuthenticationError as e:
-                logging.error(f"OpenAI Auth Error: {e}")
-                reply = "API key error – please check my configuration."
-            except openai_error.RateLimitError as e:
-                logging.error(f"OpenAI Rate Limit: {e}")
-                reply = "I'm a bit busy right now. Please try again shortly."
-            except openai_error.OpenAIError as e:
-                logging.error(f"OpenAI Error: {e}")
-                reply = "Oops! Something went wrong on my end."
             except Exception as e:
-                logging.exception("Unexpected error calling OpenAI")
-                reply = "Unexpected error – please try again later."
+                logging.exception("OpenAI API error")
+                reply = "Sorry, something went wrong. Please try again later."
 
             # ─── Send back via Meta ───────────────────────────────────────
             send_message(sender, reply)
@@ -110,3 +103,12 @@ def webhook():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+```
+
+# **requirements.txt**
+# ```
+# flask
+# requests
+# openai>=1.0.0
+# gunicorn
+# ```
