@@ -52,11 +52,14 @@ def webhook():
             print(f"👤 User: {sender_id} ➡️ {user_message}")
 
             # 🔁 Get ChatGPT reply
-            response = openai.ChatCompletion.create(
+            client = openai.OpenAI()
+            
+            response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[{"role": "user", "content": user_message}]
             )
             bot_reply = response.choices[0].message.content.strip()
+            
             print("🤖 Bot reply:", bot_reply)
 
             # 📤 Send message back
