@@ -51,20 +51,25 @@ def webhook():
         try:
             message_event = data['entry'][0]['messaging'][0]
             sender_id = message_event['sender']['id']
-            user_message = message_event['message']['text']
-            print(f"👤 User: {sender_id} ➡️ {user_message}")
 
-            # 🔁 Get ChatGPT reply using latest SDK
-            response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": user_message}]
-            )
-            bot_reply = response.choices[0].message.content.strip()
+            # ✅ Text check (for images, deleted msg, etc.)
+            if 'message' in message_event and 'text' in message_event['message']:
+                user_message = message_event['message']['text']
+                print(f"👤 User: {sender_id} ➡️ {user_message}")
 
-            print("🤖 Bot reply:", bot_reply)
+                # 🔁 Get ChatGPT reply using latest SDK
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": user_message}]
+                )
+                bot_reply = response.choices[0].message.content.strip()
 
-            # 📤 Send message back
-            send_message(sender_id, bot_reply)
+                print("🤖 Bot reply:", bot_reply)
+
+                # 📤 Send message back
+                send_message(sender_id, bot_reply)
+            else:
+                print("⚠️ Message has no text — ignored.")
 
         except Exception as e:
             print("❌ Error:", e)
