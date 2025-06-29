@@ -59,8 +59,8 @@ def webhook():
             # ─── Keyword-based reply ───
             if "hello" in message:
                 reply = "Hey! How can I help you?"
-            elif "info" in message:
-                reply = "Swaroop is a 12th-grade science student and YouTuber."
+            elif "Your Info" in message:
+                reply = "I'm Sxaroop AI. Created by SxaroopJangid"
             else:
                 reply = "Thanks for your message! I’ll get back to you soon."
 
