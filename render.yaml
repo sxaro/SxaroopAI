@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: instagram-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: VERIFY_TOKEN
+        value: swaroop_token
+      - key: PAGE_ACCESS_TOKEN
+        value: 1af53f874baa85102b2a6aa9bdc9057a
