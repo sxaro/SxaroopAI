@@ -1,3 +1,4 @@
+# TEST CODE
 import os
 import logging
 import requests
@@ -13,62 +14,62 @@ PAGE_ACCESS_TOKEN = os.getenv("PAGE_ACCESS_TOKEN")
 if not PAGE_ACCESS_TOKEN:
     raise Exception("❌ PAGE_ACCESS_TOKEN is missing!")
 
-# ─── Send Message to Instagram ────────
+# ─── Send Message Function ─────────────
 def send_message(recipient_id, message_text):
-    url = "https://graph.facebook.com/v18.0/me/messages"
-    params = {"access_token": PAGE_ACCESS_TOKEN}
+    url = f"https://graph.facebook.com/v18.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
     payload = {
+        "messaging_type": "RESPONSE",
         "recipient": {"id": recipient_id},
         "message": {"text": message_text}
     }
-    try:
-        res = requests.post(url, params=params, json=payload)
-        res.raise_for_status()
-        logging.info(f"✅ Sent to {recipient_id}")
-    except requests.RequestException as e:
-        logging.error(f"❌ Send error: {e}")
+    headers = {"Content-Type": "application/json"}
 
-# ─── Home ─────────────────────────────
+    try:
+        res = requests.post(url, json=payload, headers=headers)
+        res.raise_for_status()
+        logging.info(f"✅ Replied to {recipient_id}")
+    except requests.RequestException as e:
+        logging.error(f"❌ Failed to send: {e} - {e.response.text if e.response else 'No response'}")
+
+# ─── Home Check ────────────────────────
 @app.route("/", methods=["GET"])
 def home():
-    return "✅ Swaroop IG Bot Running (no GPT)", 200
+    return "✅ Instagram Auto-Reply Bot is running on Render", 200
 
-# ─── Webhook ──────────────────────────
+# ─── Webhook Verification + Handling ───
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     if request.method == "GET":
-        mode = request.args.get("hub.mode")
-        token = request.args.get("hub.verify_token")
-        challenge = request.args.get("hub.challenge")
-        if mode == "subscribe" and token == VERIFY_TOKEN:
-            return challenge, 200
+        if (request.args.get("hub.mode") == "subscribe" and
+            request.args.get("hub.verify_token") == VERIFY_TOKEN):
+            return request.args.get("hub.challenge"), 200
         return "Verification failed", 403
 
-    # POST = message
-    data = request.get_json()
-    logging.info(f"📩 Incoming: {data}")
+    # POST = incoming DM
+    payload = request.get_json()
+    logging.info(f"📩 Incoming: {payload}")
 
-    for entry in data.get("entry", []):
-        for msg_event in entry.get("messaging", []):
-            sender_id = msg_event.get("sender", {}).get("id")
-            message = msg_event.get("message", {}).get("text", "").lower()
+    for entry in payload.get("entry", []):
+        for event in entry.get("messaging", []):
+            sender_id = event.get("sender", {}).get("id")
+            message = event.get("message", {}).get("text", "")
 
-            if not sender_id or not message:
-                continue
+            if sender_id and message:
+                logging.info(f"👤 From {sender_id}: {message}")
 
-            # ─── Keyword-based reply ───
-            if "hello" in message:
-                reply = "Hey! How can I help you?"
-            elif "Your Info" in message:
-                reply = "I'm Sxaroop AI. Created by SxaroopJangid"
-            else:
-                reply = "Thanks for your message! I’ll get back to you soon."
+                # Reply logic (basic)
+                if "hello" in message.lower():
+                    reply = "Hi! How can I help you?"
+                elif "info" in message.lower():
+                    reply = "Swaroop is a 12th-grade science student and YouTuber."
+                else:
+                    reply = "Thanks for your message! I'll get back to you soon."
 
-            send_message(sender_id, reply)
+                send_message(sender_id, reply)
 
     return jsonify(status="ok"), 200
 
-# ─── Start App ────────────────────────
+# ─── Start Server ──────────────────────
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
